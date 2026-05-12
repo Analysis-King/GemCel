@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧭 Çelebi AI - Learning Agent</title>
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --surface: #252526;
+            --surface-2: #2d2d30;
+            --border: #3e3e42;
+            --text: #d4d4d4;
+            --text-dim: #9d9d9d;
+            --text-bright: #ffffff;
+            --accent: #4ec9b0;
+            --user: #569cd6;
+            --thought: #c586c0;
+            --action: #dcdcaa;
+            --observation: #6a9955;
+            --error: #f48771;
+            --warning: #ffcc00;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            grid-template-rows: auto 1fr auto;
+            overflow: hidden;
+        }
+
+        header {
+            grid-column: 1 / 3;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        header .title { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+        header .version { font-size: 11px; color: var(--text-dim); padding: 2px 8px; background: var(--surface-2); border-radius: 4px; }
+        header button { background: transparent; color: var(--text-dim); border: 1px solid var(--border); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        header button:hover { color: var(--text); border-color: var(--text-dim); }
+
+        #chat {
+            grid-column: 1 / 2;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+
+        .message { display: flex; gap: 12px; max-width: 100%; }
+        .avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
+        .avatar.user { background: var(--user); }
+        .avatar.celebi { background: var(--accent); }
+        .body { flex: 1; min-width: 0; }
+
+        .final-answer { 
+            background: var(--surface); 
+            border-left: 3px solid var(--accent); 
+            padding: 12px 14px; 
+            border-radius: 4px; 
+            line-height: 1.6; 
+            margin-top: 10px; 
+            word-wrap: break-word; 
+            font-size: 14px;
+        }
+
+        #learning-panel {
+            grid-column: 2 / 3;
+            grid-row: 2 / 4;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .panel-title { font-size: 12px; font-weight: bold; color: var(--accent); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .stat-card { background: var(--bg); padding: 12px; border-radius: 4px; text-align: center; border: 1px solid var(--border); }
+        .stat-value { font-size: 20px; font-weight: bold; color: var(--text-bright); display: block; }
+        .stat-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
+
+        #log-container {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            scroll-behavior: smooth;
+        }
+        
+        #event-log { display: flex; flex-direction: column; gap: 6px; }
+        .log-entry { font-family: 'Consolas', monospace; font-size: 11px; padding: 6px 10px; border-radius: 4px; border-left: 3px solid transparent; line-height: 1.4; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .log-memory { background: #352a35; color: var(--thought); border-color: var(--thought); }
+        .log-obs { background: #2a352a; color: var(--observation); border-color: var(--observation); }
+        .log-rule { background: #35332a; color: var(--warning); border-color: var(--warning); }
+        .log-time { color: var(--text-dim); margin-right: 5px; }
+
+        #input-area {
+            grid-column: 1 / 2;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+        }
+        #task-input { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 12px; border-radius: 4px; font-family: inherit; font-size: 14px; resize: none; min-height: 60px; }
+        #task-input:focus { outline: none; border-color: var(--accent); }
+        .input-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+        .input-controls span { font-size: 11px; color: var(--text-dim); }
+        button#send-btn { background: var(--accent); color: var(--bg); border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        button#send-btn:disabled { background: var(--border); cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="title"><span>🧭</span> Çelebi Agent <span class="version">v6.13</span></div>
+    <button onclick="location.reload()">Yeni Oturum</button>
+</header>
+
+<div id="chat"></div>
+
+<aside id="learning-panel">
+    <div class="section">
+        <div class="panel-title">Sistem Bilgisi</div>
+        <div class="stat-grid">
+            <div class="stat-card"><span class="stat-value" id="stat-success">0</span><span class="stat-label">Başarı</span></div>
+            <div class="stat-card"><span class="stat-value" id="stat-error">0</span><span class="stat-label">Hata</span></div>
+            <div class="stat-card"><span class="stat-value" id="stat-rules">0</span><span class="stat-label">Yeni Kural</span></div>
+            <div class="stat-card"><span class="stat-value" id="stat-embed">0</span><span class="stat-label">Vektör</span></div>
+        </div>
+    </div>
+
+    <div class="section" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="panel-title">Canlı Öğrenme Günlüğü</div>
+        <div id="log-container">
+            <div id="event-log"></div>
+        </div>
+    </div>
+</aside>
+
+<div id="input-area">
+    <textarea id="task-input" placeholder="Görevi buraya yazın ve Enter'a basın..."></textarea>
+    <div class="input-controls">
+        <span>Opus Level Self-Evolution Engine Aktif</span>
+        <button id="send-btn" onclick="sendTask()">Çalıştır ↗</button>
+    </div>
+</div>
+
+<script>
+const chat = document.getElementById('chat');
+const input = document.getElementById('task-input');
+const sendBtn = document.getElementById('send-btn');
+const log = document.getElementById('event-log');
+const logContainer = document.getElementById('log-container');
+
+let currentBody = null;
+
+function scrollToBottom(el) {
+    if (el) el.scrollTop = el.scrollHeight;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+function logEvent(type, message) {
+    const entry = document.createElement('div');
+    entry.className = `log-entry log-${type}`;
+    const time = new Date().toLocaleTimeString([], {
+        hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    entry.innerHTML = `<span class="log-time">${time}</span> ${message}`;
+    log.appendChild(entry);
+    scrollToBottom(logContainer);
+}
+
+function updateStats(s) {
+    if (!s) return;
+    document.getElementById('stat-success').textContent = s.successes || 0;
+    document.getElementById('stat-error').textContent = s.failures || 0;
+    document.getElementById('stat-rules').textContent = s.rules || 0;
+    document.getElementById('stat-embed').textContent = s.embedded || 0;
+}
+
+async function sendTask() {
+    const task = input.value.trim();
+    if (!task) return;
+
+    sendBtn.disabled = true;
+
+    const userDiv = document.createElement('div');
+    userDiv.className = 'message';
+    userDiv.innerHTML = `
+        <div class="avatar user">👤</div>
+        <div class="body"><p>${escapeHtml(task)}</p></div>
+    `;
+    chat.appendChild(userDiv);
+    scrollToBottom(chat);
+
+    input.value = '';
+
+    const celebiDiv = document.createElement('div');
+    celebiDiv.className = 'message';
+    const body = document.createElement('div');
+    body.className = 'body';
+    celebiDiv.innerHTML = `<div class="avatar celebi">🧭</div>`;
+    celebiDiv.appendChild(body);
+    chat.appendChild(celebiDiv);
+    currentBody = body;
+
+    try {
+        const res = await fetch('/api/task', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task: task }) 
+        });
+
+        if (!res.ok) throw new Error('Sunucu hatası: ' + res.status);
+        const { task_id } = await res.json();
+
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${location.host}/ws/${task_id}`);
+
+        ws.onmessage = (m) => {
+            const {event, data} = JSON.parse(m.data);
+
+            if (event === 'stats_update' && data?.stats) {
+                updateStats(data.stats);
+            }
+            else if (event === 'thought') {
+                const stage = data.stage || "PROCESS";
+                logEvent('rule', `[${stage}] ${data.thought}`);
+            }
+            else if (event === 'observation') {
+                logEvent('obs', `Araç Sonucu: ${(data.observation || "").toString().substring(0, 120)}...`);
+            }
+            else if (event === 'final') {
+                const fin = document.createElement('div');
+                fin.className = 'final-answer';
+                
+                // HTML Escape işlemi yapıyoruz
+                let html = escapeHtml(data.answer);
+                html = html.replace(/\n/g, '<br>');
+
+                // --- ÇAKIŞMAYI ÖNLEMEK İÇİN HEX KODU KULLANIYORUZ (\x60 = `) ---
+                const pyReg = new RegExp("\\x60\\x60\\x60python([\\s\\S]*?)\\x60\\x60\\x60", "g");
+                const genReg = new RegExp("\\x60\\x60\\x60([\\s\\S]*?)\\x60\\x60\\x60", "g");
+
+                html = html.replace(pyReg, '<pre style="background:#000; padding:12px; border-radius:4px; overflow-x:auto; font-family:monospace; color:#4ec9b0; border:1px solid #333; margin:10px 0;"><code>$1</code></pre>');
+                html = html.replace(genReg, '<pre style="background:#000; padding:12px; border-radius:4px; overflow-x:auto; font-family:monospace; color:#fff; border:1px solid #333; margin:10px 0;"><code>$1</code></pre>');
+
+                fin.innerHTML = `<strong>Çelebi:</strong><br>${html}`;
+                
+                if (currentBody) {
+                    currentBody.appendChild(fin);
+                    scrollToBottom(chat);
+                }
+                currentBody = null;
+            }
+        };
+
+        ws.onclose = () => { sendBtn.disabled = false; };
+        ws.onerror = (err) => { 
+            console.error("WS Hatası:", err);
+            logEvent('error', 'İletişim hattı koptu.');
+            sendBtn.disabled = false; 
+        };
+
+    } catch (err) {
+        logEvent('error', `Ajan hatası: ${err.message}`);
+        sendBtn.disabled = false;
+    }
+}
+
+input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendTask();
+    }
+});
+</script>
+</body>
+</html>

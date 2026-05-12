@@ -1,0 +1,12 @@
+import asyncio
+import websockets
+
+async def test():
+    uri = "ws://127.0.0.1:8000/ws/d513a716-f8d9-468b-bc5e-6b1c9de49336"
+
+    async with websockets.connect(uri) as ws:
+        while True:
+            msg = await ws.recv()
+            print(msg)
+
+asyncio.run(test())
